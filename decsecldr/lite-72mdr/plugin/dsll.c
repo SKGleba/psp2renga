@@ -37,6 +37,8 @@ static int woold(int mode) {
 			ksceIoRead(fd, fb_addr, (stat.st_size - 0x1000));
 			ksceIoClose(fd);
 		}
+	} else if (mode == 3) {
+		memcpy((fb_addr + 0x10000), &PAYLOAD, sizeof(PAYLOAD));
 	}
 	ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
 	ksceKernelFreeMemBlock(uid);
@@ -132,12 +134,11 @@ int module_start(SceSize argc, const void *args)
 	LOG("fw: 0x%lX\n", *(uint32_t *)(*(int *)(sysroot + 0x6c) + 4));
 	woold(0);
 	init();
-	uintptr_t buf_paddr;
-	ksceKernelGetPaddr(PAYLOAD, &buf_paddr);
-	LOG("buf_paddr : 0x%X\n", buf_paddr);
-	cmep_cpypriv((uint32_t)buf_paddr);
+	woold(3);
+	cmep_cpypriv((uint32_t)0x1C010000);
 	cmep_jump(5414);
 	ksceSblSmCommStopSm(ctx, &stop_res);
+	woold(0);
 	if (woold(2) != 0)
 		return SCE_KERNEL_START_FAILED;
 	reloadsm();
