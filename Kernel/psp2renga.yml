@@ -1,0 +1,35 @@
+psp2renga:
+  attributes: 0
+  version:
+    major: 1
+    minor: 1
+  main:
+    start: module_start
+    stop: module_stop
+  modules:
+    rengaUser:
+      syscall: true
+      functions:
+        - renga_set_logging_for_user
+        - renga_force_commemblock_for_user
+        - renga_work_commem_for_user
+        - renga_get_status_for_user
+        - renga_get_opmode_for_user
+        - renga_set_opmode_for_user
+        - renga_add_entry_for_user
+        - renga_exec_code_for_user
+        - renga_force_reset_framework_for_user
+        - renga_remove_entry_for_user
+    rengaKernel:
+      functions:
+        - renga_set_logging
+        - renga_force_commemblock
+        - renga_work_commem
+        - renga_get_status
+        - renga_get_opmode
+        - renga_set_opmode
+        - renga_add_entry
+        - renga_exec_code
+        - renga_force_reset_framework
+        - renga_add_reset_entry
+        - renga_remove_entry
