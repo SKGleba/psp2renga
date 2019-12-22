@@ -27,6 +27,7 @@ add_executable(psp2renga.elf
 )
 
 target_link_libraries(psp2renga.elf
+	SceSblSmSchedProxyForKernel_stub
 	SceSblSmCommForKernel_stub
 	SceIofilemgrForDriver_stub
 	SceSysclibForDriver_stub

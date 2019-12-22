@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<system_settings version="1.0" plugin="console_info_plugin">
+
+  <setting_list id="id_system" title="msg_system">
+
+    <!-- システム情報 -->
+    <setting_list id="id_about_system" title="msg_system_information" icon="tex_spanner" style="edit">
+      <label id="id_system_software" title="msg_system_software" />
+      <label id="id_mac_address" title="msg_mac_address" />
+      <label id="id_mac_address_usb" title="msg_mac_address_lan" />
+      <spacer id="id_memory_card_top" height="24"/>
+      <label id="id_memory_card" title="msg_mc" height="162"/>
+      <label id="id_phone_number" title="msg_phone_number" />
+      <label id="id_imei" title="msg_imei" />
+      <label id="id_iccid" title="msg_iccid" />
+      <label id="id_com_firm_rev" title="msg_mobile_network" />
+    </setting_list>
+	
+	<list id="id_renga_mode" 
+          key="/CONFIG/RENGA/mode"
+          title="PSP2Renga memory bank"
+		  icon="tex_spanner">
+	  <list_item id="id_renga_mode_csram" title="Camera SRAM" value="1"/>
+	  <list_item id="id_renga_mode_uphyc" title="User PhyCont" value="2"/>
+    </list>
+
+    <!-- 自動開始設定 -->
+    <setting_list id="id_auto_start" title="msg_auto_start_settings" icon="tex_spanner" hint="msg_auto_start_settings_info">
+      <user_custom id="id_auto_start_item"/>
+    </setting_list>
+
+    <!-- PS Vita本体のボタンで操作する -->
+    <toggle_switch id="id_use_system_button" title="msg_use_system_button" icon="tex_spanner" hint="msg_use_system_button_info" key="/CONFIG/SYSTEM/key_pad" />
+
+    <!-- ネットワーク経由でPS Vita本体の電源を入れられる -->
+    <toggle_switch id="id_remote_start" title="msg_remote_start" icon="tex_spanner" key="/CONFIG/NET/wol_config" />
+    
+    <!-- USB給電 -->
+    <toggle_switch id="id_usb_charge"
+                   title="msg_usb_power_supply"
+                   icon="tex_spanner"
+                   key="/CONFIG/USB/usb_charge_enable"/>
+
+    <!-- HDMI機器リンクを有効にする -->
+    <toggle_switch id="id_hdmi_device_link" title="msg_hdmi_device_link" icon="tex_spanner" key="/CONFIG/SYSTEM/hdmi_use_cec"/>
+    
+    <!-- メディア転送設定 -->
+    <setting_list id="id_media_transfer" title="msg_media_forwarding_settings" icon="tex_spanner" >
+      <toggle_switch id="id_media_transfer_allow" title="msg_allow_media_forwarding_other_devices" icon="tex_spanner" key="/CONFIG/NP2/TELEPORT/enable_media_transfer" />
+      <button id="id_media_transfer_set_passcode" title="msg_passcode" icon="tex_spanner" />
+      <button id="id_media_transfer_delete_passcode" title="msg_delete_passcode" icon="tex_spanner" />
+    </setting_list>
+    
+    <!-- PlayStation(R)Mobile -->
+    <setting_list id="id_psmobile" title="msg_psmobile" icon="tex_spanner" style="edit">
+      <label id="id_psmobile_version" title="msg_psm_runtime" />
+    </setting_list>
+    
+    <!-- 使用量 -->
+    <setting_list id="id_status" title="msg_usage" icon="tex_spanner" style="edit">
+      <label id="id_status_header" title="msg_mobile_network" style="heading"/>
+      <label id="id_status_transmit" title="msg_upload" />
+      <label id="id_status_received" title="msg_download" />
+      <label id="id_status_accumulated_time" title="msg_time" />
+      <label id="id_status_date" title="msg_reset_date" />
+      <button id="id_status_reset" title="msg_reset_vb" confirm="msg_usage_reset_conf"/>
+    </setting_list>
+
+    <!-- エラー履歴 -->
+    <setting_list id="id_error_history"
+                  title="msg_error_history"
+                  icon="tex_spanner">
+      <!-- link の枠組みだけ使って、textは独自の template で配置します -->
+      <link id="id_error_history_0" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_1" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_2" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_3" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_4" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_5" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_6" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_7" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_8" title="" file="console_info.xml" target_id="id_error_details"/>
+      <link id="id_error_history_9" title="" file="console_info.xml" target_id="id_error_details"/>
+    </setting_list>
+
+    <!-- 知的財産の表記 -->
+    <setting_list id="id_legal_information"
+                  title="msg_intellectual_property_notices"
+                  icon="tex_spanner"
+                  rotate="full">
+      
+       <!--ps family--> 
+      <user_custom id="id_ps_family"/>
+
+    </setting_list>
+
+  </setting_list>
+
+  <!-- エラー詳細 -->
+  <setting_list id="id_error_details" title="msg_value_none" style="edit">
+
+    <label id="id_error_date" title="msg_date" />
+    <label id="id_error_code" title="msg_error_code" />
+    <label id="id_error_application" title="msg_application" />
+    <label id="id_error_nat_type" title="msg_nat_type" />
+    <label id="id_error_system_software" title="msg_system_software" />
+    <label id="id_error_message" title="msg_message" />
+
+    <!-- お試しください -->
+    <button id="id_suggested_actions" title="msg_suggested_actions"/>
+
+  </setting_list>
+
+</system_settings>

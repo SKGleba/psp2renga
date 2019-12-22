@@ -1,6 +1,9 @@
 /*
 	exec_code_for_user(path, csize)
-	Reads [csize] from [path] to (0x1C000000 + NMFEND_OFF + 0x100) and jumps to it there
+	Reads [csize] from [path] to (commem + NMFEND_OFF + 0x100) and jumps to it there.
+	The code is executed with two args:
+		- ARG 1 (uint32_t): commem paddr
+		- ARG 2 (uint): requested fcmd, should be 0
 	ARG 1 (char *):
 		- source payload file path, set to NULL if source is a buf
 	ARG 2 (uint32_t):
@@ -37,14 +40,14 @@ extern int renga_work_commem_for_user(const char *path, uint32_t off, uint32_t c
 extern int renga_set_logging_for_user(int mode);
 
 /*
-	force_reset_framework(restore_mirror)
+	force_reset_framework(rexploit)
 	Resets the commem and sets up the lv0 framework for user
 	ARG 1 (int):
-		- if 1, executes reset entries
+		- if 1, re-run the exploit
 	RET (int):
 		- renga_force_reset_framework ret
 */
-extern int renga_force_reset_framework_for_user(int restore_mirror);
+extern int renga_force_reset_framework_for_user(int rexploit);
 
 /*
 	get_status_for_user(magic)
@@ -115,3 +118,16 @@ extern int renga_add_entry_for_user(char *path, uint8_t type, uint16_t magic);
 		- NMFremove_entry ret
 */
 extern int renga_remove_entry_for_user(uint8_t type, uint16_t magic);
+
+/*
+	xet_bank(entry)
+	Sets/Gets current framework bank
+	ARG 1 (int):
+		- new bank (0 to GET current bank)
+	RET (int):
+		- 0x00: ok
+		- 0x35: commem not reserved
+		- 0x69: invalid target bank
+		- else: (if entry==0 : current bank)
+*/
+extern int renga_xet_bank_for_user(int entry);

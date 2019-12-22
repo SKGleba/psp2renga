@@ -8,8 +8,8 @@
 #include <psp2/ctrl.h>
 #include <psp2/io/fcntl.h>
 #include "debugScreen.h"
-#include "../Include/renga-defs.h"
-#include "../Include/renga_user-funcs.h"
+#include "../../Include/renga-defs.h"
+#include "../../Include/renga_user-funcs.h"
 
 #define printf(...) psvDebugScreenPrintf(__VA_ARGS__)
 
@@ -35,8 +35,15 @@ int main(int argc, char *argv[])
 	
 	ret8 = renga_get_status_for_user(RENGA_MAGIC_MASTER);
 	printf("getting framework status... 0x%02X\n", ret8);
-	if (ret8 == 0x22)
-		renga_force_reset_framework_for_user(1);
+	if (ret8 == 0x22 || ret8 == 0x27) {
+		printf("framework not ready!!\n");
+		renga_set_logging_for_user(0);
+		wait_key_press();
+		if (do_dump == 0)
+			return 0;
+	}
+	
+	printf("framework bank: %d\n", renga_xet_bank_for_user(0));
 	
 	printf("copying %s to unused-mem... ", UNUSED_INPUT_PATH);
 	printf("0x%X\n", renga_work_commem_for_user(UNUSED_INPUT_PATH, RENGA_END_OFF, 0, 1));

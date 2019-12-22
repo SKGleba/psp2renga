@@ -5,7 +5,7 @@ set(CMAKE_C_COMPILER "arm-vita-eabi-gcc")
 set(CMAKE_CXX_COMPILER "arm-vita-eabi-g++")
 
 project(lv0_loader)
-set(TITLE_ID "LV0LDR000")
+set(TITLE_ID "SKGLV0LDR")
 set(TITLE_NAME "lv0 loader")
 
 set(CMAKE_C_FLAGS "-Wl,-q -Wall -O3 -std=gnu99")
@@ -16,7 +16,7 @@ include_directories(
 
 link_directories(
 	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_BINARY_DIR}/../Kernel/stubs
+	${CMAKE_BINARY_DIR}/../../Kernel/stubs
 )
 
 add_executable(${PROJECT_NAME}.elf

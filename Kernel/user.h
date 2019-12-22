@@ -22,7 +22,7 @@ int renga_exec_code_for_user(const char *path, uint32_t csize) {
 		return 0x23;
 	if (csize == 0)
 		csize = stat.st_size;
-	ret = renga_exec_code(NULL, k_path, csize, 0);
+	ret = renga_exec_code(NULL, k_path, csize);
 	EXIT_SYSCALL(state);
 	return ret;
 }
@@ -214,6 +214,27 @@ int renga_remove_entry_for_user(uint8_t type, uint16_t magic) {
 	ENTER_SYSCALL(state);
 	LOG("Removing entry of type 0x%02X from 0x%02X for user\n", type, magic);
 	ret = renga_remove_entry(type, magic);
+	EXIT_SYSCALL(state);
+	return ret;
+}
+
+/*
+	xet_bank_for_user(entry)
+	Sets/Gets current framework bank
+	ARG 1 (int):
+		- new bank (0 to GET current bank)
+	RET (int):
+		- 0x00: ok
+		- 0x35: commem not reserved
+		- 0x69: invalid target bank
+		- else: (if entry==0 : current bank)
+*/
+int renga_xet_bank_for_user(int entry) {
+	uint32_t state;
+	int ret = 0;
+	ENTER_SYSCALL(state);
+	LOG("xetting bank for user [0x%X]\n", entry);
+	ret = renga_xet_bank(entry);
 	EXIT_SYSCALL(state);
 	return ret;
 }

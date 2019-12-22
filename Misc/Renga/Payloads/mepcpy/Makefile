@@ -9,7 +9,7 @@ OBJCOPYFLAGS=
 
 OBJ=main.o
 
-all: irq_fw.h
+all: mepcpy.h
 
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
@@ -17,12 +17,12 @@ all: irq_fw.h
 %.ao: %.S
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-irq_fw.elf: $(OBJ)
+mepcpy.elf: $(OBJ)
 	$(LD) -o $@ $^ $(LDFLAGS)
 
 %.nmp: %.elf
 	$(OBJCOPY) -O binary $< $@
-	
+
 %.h: %.nmp
 	xxd -i $< > $@
 	rm *.elf

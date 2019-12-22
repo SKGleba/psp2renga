@@ -11,32 +11,47 @@
 #include <psp2kern/kernel/modulemgr.h>
 #include <vitasdkkern.h>
 
-#include "../Include/nmfmanager.h"
-
 #define LOG_LOC "ux0:data/0psp2renga.log"
 #include "logging.h"
+
+#include "../Include/nmfmanager.h"
+
+unsigned char mepcpy_payload[] = {
+  0xc0, 0x6f, 0x1a, 0x7b, 0x06, 0x4b, 0x1b, 0xc2, 0x09, 0x00, 0x1b, 0xc9,
+  0x08, 0x00, 0x1b, 0xc3, 0x0a, 0x00, 0x46, 0x62, 0x90, 0x12, 0x1b, 0xc9,
+  0x0b, 0x00, 0x86, 0x63, 0x30, 0x12, 0xc6, 0x69, 0x20, 0x19, 0x9e, 0xc0,
+  0x0c, 0x00, 0x9e, 0x01, 0x9e, 0xc2, 0x04, 0x00, 0x9e, 0xc3, 0x08, 0x00,
+  0x0f, 0xa0, 0x16, 0xd0, 0x10, 0x80, 0x0f, 0x10, 0x07, 0x4b, 0x40, 0x6f,
+  0xbe, 0x10, 0x21, 0xc0, 0x05, 0xe0, 0x04, 0xc0, 0x24, 0x00, 0x0e, 0x09,
+  0x95, 0xc9, 0x01, 0x00, 0x3b, 0xa9, 0x21, 0xc0, 0x05, 0xe0, 0x0a, 0x02,
+  0x04, 0xc2, 0x04, 0x00, 0x2a, 0x01, 0x04, 0xc2, 0x08, 0x00, 0x2a, 0x03,
+  0x04, 0xc3, 0x0c, 0x00, 0x01, 0xc2, 0x80, 0x20, 0x3a, 0x02, 0x04, 0xc3,
+  0x1c, 0x00, 0x01, 0x52, 0x3a, 0x02, 0x04, 0xc3, 0x24, 0x00, 0x19, 0xe0,
+  0x03, 0x00, 0x3e, 0x02, 0x25, 0xc2, 0x01, 0x00, 0x02, 0xa2, 0x3e, 0x00,
+  0xb4, 0xbf, 0x21, 0xc9, 0x05, 0xe0, 0x94, 0xc9, 0x1c, 0x00, 0x00, 0x5a,
+  0x9a, 0x0a, 0x19, 0xe0, 0x03, 0x00, 0x0e, 0x09, 0x95, 0xc9, 0x01, 0x00,
+  0x02, 0xa9, 0xb0, 0xbf, 0xf0, 0xff, 0x1f, 0x00
+};
 
 static void *rcalls[16];
 static int callcnt = 0;
 
 /*
-	exec_code(cbuf, floc, csize, ctx)
-	Copies [csize]/Reads [csize] from [cbuf] to (0x1C000000 + NMFEND_OFF + 0x100) and jumps to it there
+	exec_code(cbuf, floc, csize)
+	Copies [csize]/Reads [csize] from [cbuf] to 0x1C000100 and jumps to it there
 	ARG 1 (void *):
 		- source payload buf, set to NULL if source is a file
 	ARG 2 (char *):
 		- source payload file path, set to NULL if source is a buf
 	ARG 3 (uint32_t):
 		- payload size
-	ARG 4 (int):
-		- loaded SM context, set to 0 if no SM loaded
 	RET (int):
 		- NMFexec_code ret
 */
-int renga_exec_code(void *cbuf, char *floc, uint32_t csize, int ctx) {
+int renga_exec_code(void *cbuf, char *floc, uint32_t csize) {
 	unsigned int ret = 0;
 	LOG("Running the code... ");
-	ret = NMFexec_code(cbuf, floc, csize, ctx);
+	ret = NMFexec_code(cbuf, floc, csize);
 	LOG("0x%X\n", ret);
 	return ret;
 }
@@ -247,35 +262,76 @@ int renga_add_reset_entry(void *vaddr, int cln_slot) {
 }
 
 /*
-	force_reset_framework(restore_mirror)
+	force_reset_framework(rexploit)
 	Resets the commem and sets up the framework
 	ARG 1 (int):
-		- if 1, executes reset entries
+		- if 1, re-run the exploit
 	RET (int):
 		- NMFsetup_framework ret
 */
-int renga_force_reset_framework(int restore_mirror) {
+int renga_force_reset_framework(int rexploit) {
 	unsigned int ret = 0, tmpctr = 0;
-	renga_force_commemblock(0, 1);
+	renga_force_commemblock(0, 0);
 	renga_force_commemblock(1, 1);
 	LOG("WARNING: lv0 framework reset requested... ");
-	NMPctx = -1;
-	ret = NMFsetup_framework();
+	(rexploit == 1) ? NMPctx = -1 : renga_set_opmode(RENGA_MAGIC_MASTER, 1);
+	ret = NMFsetup_framework(rexploit);
 	LOG("0x%X\n", ret);
-	if (restore_mirror == 1) {
-		while (tmpctr < callcnt) {
-			if (rcalls[tmpctr] != NULL) {
-				LOG("Running 0x%X... ", tmpctr);
-				void (*curtmp)() = (void*)(rcalls[tmpctr]);
-				curtmp();
-				LOG("OK\n");
-			} else
-				break;
-			tmpctr = tmpctr + 1;
-		}
-			
+	while (tmpctr < callcnt) {
+		if (rcalls[tmpctr] != NULL) {
+			LOG("Running 0x%X... ", tmpctr);
+			void (*curtmp)() = (void*)(rcalls[tmpctr]);
+			curtmp();
+			LOG("OK\n");
+		} else
+			break;
+		tmpctr = tmpctr + 1;
 	}
 	return ret;
+}
+
+/*
+	xet_bank(entry)
+	Sets/Gets current framework bank
+	ARG 1 (int):
+		- new bank (0 to GET current bank)
+	RET (int):
+		- 0x00: ok
+		- 0x35: commem not reserved
+		- 0x69: invalid target bank
+		- else: (if entry==0 : current bank)
+*/
+int renga_xet_bank(int entry) {
+	unsigned int ret = 0;
+	LOG("Bank %s requested... ", (entry == 0) ? "info" : "switch");
+	ret = NMFxet_bank(entry);
+	LOG("0x%X\n", ret);
+	return ret;
+}
+
+/*
+	mepcpy(dst, src, sz, device)
+	Adds a framework-reset entry (or cleans if func=NULL)
+	ARG 1 (uint32_t):
+		- dst paddr
+	ARG 2 (uint32_t):
+		- src paddr
+	ARG 3 (uint32_t):
+		- size to copy
+	ARG 4 (uint32_t):
+		- memcpy func (0 for secure_kernel's; 1 for the second cry's (bigmac))
+	RET (int):
+		- if device == 0: dst or error
+		- if device == 1: 0 or error
+*/
+int renga_mepcpy(uint32_t dst, uint32_t src, uint32_t sz, uint32_t device) {
+	volatile NMFfm_nfo *fmnfo = (void *)NMPcorridor;
+	fmnfo->cucnfo.unused = (NMFcurrent_paddr + NMFEND_OFF + 0x100 + sizeof(mepcpy_payload) + 0x10);
+	*(uint32_t *)(NMPcorridor + NMFEND_OFF + 0x100 + sizeof(mepcpy_payload) + 0x10) = dst;
+	*(uint32_t *)(NMPcorridor + NMFEND_OFF + 0x100 + sizeof(mepcpy_payload) + 0x14) = src;
+	*(uint32_t *)(NMPcorridor + NMFEND_OFF + 0x100 + sizeof(mepcpy_payload) + 0x18) = sz;
+	*(uint32_t *)(NMPcorridor + NMFEND_OFF + 0x100 + sizeof(mepcpy_payload) + 0x1C) = device;
+	return renga_exec_code(&mepcpy_payload, NULL, sizeof(mepcpy_payload));
 }
 
 #include "user.h"
@@ -286,7 +342,7 @@ static tai_hook_ref_t sub_81000000_patched_ref;
 SceUID sub_81000000_patched(int resume, int eventid, void *args, void *opt) {
 	int ret = TAI_CONTINUE(SceUID, sub_81000000_patched_ref, resume, eventid, args, opt);
 	if (eventid == 0x100000) {
-		if (renga_get_status(0) == 0x22)
+		if (((renga_xet_bank(0) == 1) && renga_get_status(0) == 0x22) || renga_xet_bank(0) == 2)
 			renga_force_reset_framework(1);
 	}
 	return ret;
@@ -300,7 +356,18 @@ int module_start(SceSize argc, const void *args)
 	ret = renga_force_commemblock(1, 1);
 	if (ret != 0)
 		return SCE_KERNEL_START_FAILED;
-	ret = NMFsetup_framework();
+	NMFramework_uid = 0;
+	NMForig_corridor = NMPcorridor;
+	
+	// Comment this to start off camera SRAM
+	//--
+	alloc_phycont(NMPcorridor_size, 4096, &NMFramework_uid, &NMFramework);
+	ksceKernelGetPaddr(NMFramework, &NMFramework_paddr);
+	NMPcorridor = NMFramework;
+	NMFcurrent_paddr = NMFramework_paddr;
+	//--
+	
+	ret = NMFsetup_framework(1);
 	LOG("setup_lv0_framework: 0x%X\n", ret);
 	if (ret != 0)
 		return SCE_KERNEL_START_FAILED;
@@ -313,7 +380,7 @@ int module_start(SceSize argc, const void *args)
 
 int module_stop(SceSize argc, const void *args)
 {
-	renga_force_commemblock(1, 1);
+	renga_force_commemblock(1, 0);
 	renga_force_commemblock(0, 1);
 	LOG("psp2renga finished:?!?\n");
 	return SCE_KERNEL_STOP_SUCCESS;
